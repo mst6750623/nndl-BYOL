@@ -71,7 +71,7 @@ class BYOLTrainer:
         self.init_target_param()
         iter = 0
         l_sum = 0
-        tb_log_intv = 100
+        tb_log_intv = 200
         for epoch in range(self.num_epoch):
             losses = []
             print("epoch:", epoch)
@@ -87,14 +87,14 @@ class BYOLTrainer:
                 l.backward()
                 self.optimizer.step()
 
-                if iter % tb_log_intv == 0:
-                    avgl = np.mean(losses[iter-tb_log_intv:iter])
+                if iter !=0 and iter % tb_log_intv == 0:
+                    avgl = np.mean(losses[-tb_log_intv:])
                     print('loss:{}'.format(avgl))
                     writer.add_scalar("iter_Loss", avgl, global_step = iter)
                 self.update_target_param()
                 iter += 1
-            print('total_loss:{}'.format(np.mean(lossses)))
-            writer.add_scalar("epoch_Loss", np.mean(lossses), global_step = epoch)
+            print('total_loss:{}'.format(np.mean(losses)))
+            writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
         writer.flush()
         self.save_model(
             os.path.join(checkpoint_path, 'model.pth'))
