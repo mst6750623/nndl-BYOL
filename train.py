@@ -15,10 +15,10 @@ torch.manual_seed(0)
 
 def main():
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
-    data_root = "../"
-    checkpoint_path = '/home/longzili/workspace/BYOL_checkpoint/'
+    data_root = "/mnt/pami23/longzili/DATA/nndl_BYOL"
+    checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/'
     num_epoch = 40
-    batch_size = 32
+    batch_size = 256
 
     #optimizer
     lr=0.0001
