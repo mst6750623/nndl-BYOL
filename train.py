@@ -14,10 +14,17 @@ torch.manual_seed(0)
 
 
 def main():
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    data_root = "/mnt/pami23/stma/datasets/STL10"
+    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    data_root = "../"
+    checkpoint_path = '/home/longzili/workspace/BYOL_checkpoint/'
     num_epoch = 40
     batch_size = 32
+
+    #optimizer
+    lr=0.0001
+    beta=(0.5,0.999)
+    weight_decay=0.99
+
     data = torchvision.datasets.STL10(
         data_root,
         split='train+unlabeled',
@@ -34,13 +41,13 @@ def main():
 
     optimizer = torch.optim.Adam(list(online_net.parameters()) +
                                  list(online_predictor.parameters()),
-                                 lr=0.0001,
-                                 weight_decay=0.99)
-    momentum_ori = 0.996
+                                 lr,
+                                 beta,
+                                 weight_decay)
+    momentum_ori = 0.999
     my_trainer = BYOLTrainer(num_epoch, batch_size, online_net,
                              online_predictor, target_net, optimizer,
-                             momentum_ori, device)
-    #my_trainer.to(device)
+                             momentum_ori, device, checkpoint_path)
     my_trainer.train(data)
 
 
