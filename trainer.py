@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
+import numpy as np
 import os
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -11,7 +12,7 @@ writer = SummaryWriter()
 
 class BYOLTrainer:
     def __init__(self, num_epoch, batch_size, online_net, online_predictor,
-                 target_net, optimizer, momentum, device):
+                 target_net, optimizer, momentum, device, checkpoint_path):
         self.num_epoch = num_epoch
         self.online_net = online_net
         self.online_predictor = online_predictor
@@ -70,31 +71,31 @@ class BYOLTrainer:
         self.init_target_param()
         iter = 0
         l_sum = 0
-        for i in range(self.num_epoch):
-            print("epoch:", i)
+        tb_log_intv = 100
+        for epoch in range(self.num_epoch):
+            losses = []
+            print("epoch:", epoch)
             for (x_1, x_2), _ in tqdm(self.data_iter, desc="Processing:"):
                 #print(x[0].shape, x[1].shape, x[0].equal(x[1]))
                 x1 = x_1.to(self.device)
                 x2 = x_2.to(self.device)
                 l = self.update(x1, x2)
-                writer.add_scalar('loss', l, global_step=iter)
-                #writer.add_scalar("Loss/train", l, i)
-
+                losses.append(l.item())
+                #writer.add_scalar('loss', l, global_step=iter)
+                
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
 
-                l_sum += l
-                if iter % 100 == 0:
-                    print(l_sum / 100)
-                    #writer.add_scalar("Loss/train", l_sum / 100, iter)
-                    l_sum = 0
-
+                if iter % tb_log_intv == 0:
+                    avgl = np.mean(losses[iter-tb_log_intv:iter])
+                    print('loss:{}'.format(avgl))
+                    writer.add_scalar("iter_Loss", avgl, global_step = iter)
                 self.update_target_param()
-
                 iter += 1
-            #print(l_sum.mean())
+            print('total_loss:{}'.format(np.mean(lossses)))
+            writer.add_scalar("epoch_Loss", np.mean(lossses), global_step = epoch)
         writer.flush()
         self.save_model(
-            os.path.join('/mnt/pami23/stma/checkpoints/myBYOL', 'model.pth'))
+            os.path.join(checkpoint_path, 'model.pth'))
         writer.close()
