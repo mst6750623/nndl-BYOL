@@ -7,6 +7,7 @@ import data_augmentation.data_transform as transform
 from data_augmentation.multiview_data import MultiviewData
 from trainer import BYOLTrainer
 from net.resnet_with_projector import my_resnet_with_projector
+from net.vgg_with_projector import my_vgg_with_projector
 from net.MLP_head import MLPHead
 
 torch.manual_seed(0)
@@ -26,10 +27,10 @@ def main():
         #transform=torchvision.transforms.ToTensor(),
         download=True)
 
-    online_net = my_resnet_with_projector(512, 128).to(device)
+    online_net = my_vgg_with_projector(512, 128).to(device)
     online_predictor = MLPHead(online_net.projector.layer[-1].out_features,
                                512, 128).to(device)
-    target_net = my_resnet_with_projector(512, 128).to(device)
+    target_net = my_vgg_with_projector(512, 128).to(device)
 
     optimizer = torch.optim.Adam(list(online_net.parameters()) +
                                  list(online_predictor.parameters()),
