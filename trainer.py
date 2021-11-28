@@ -99,6 +99,7 @@ class BYOLTrainer:
                 self.optimizer.step()
                 #更新target____ddp需要用module
                 net.module.update_target_param()
+                step_optimizer.step()
 
                 if opt.local_rank == 0:
                     if iter !=0 and iter % tb_log_intv == 0:
@@ -109,7 +110,10 @@ class BYOLTrainer:
             if opt.local_rank==0:
                 print('total_loss:{}'.format(np.mean(losses)))
                 writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
-                net.save_model(os.path.join(checkpoint_path, str(epoch)+'model.pth'))
+                writer.add_scalar("lr", , global_step = epoch)
+                current_lr = optimizer.state_dict()['param_groups'][0]['lr']
+                writer.add_scalar('lr',current_lr,global_step=epoch)
+                net.save_model(os.path.join(checkpoint_path, 'step'+str(epoch)+'model.pth'))
         if opt.local_rank==0:
             writer.flush()
             writer.close()
