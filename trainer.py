@@ -116,7 +116,7 @@ class BYOLTrainer:
                 current_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
                 writer.add_scalar('lr',current_lr,global_step=epoch)
                 if epoch!=1 and epoch%5:
-                    net.module.save_model(os.path.join(self.checkpoint_path, 'biglr001_'+str(epoch)+'model.pth'))
+                    net.module.save_model(os.path.join(self.checkpoint_path, 'BYOL'+str(epoch)+'model.pth'))
             self.step_optimizer.step()
         if opt.local_rank==0:
             writer.flush()

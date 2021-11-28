@@ -31,22 +31,29 @@ def main():
 
     # device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     data_root = "/mnt/pami23/longzili/DATA/nndl_BYOL"
-    checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/big_lr_0.001/'
+    checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/image_net_big_lr_0.005/'
     num_epoch = 80
     batch_size = 128
 
     #optimizer
-    lr=0.001
+    lr=0.005
     beta=(0.5,0.999)
     weight_decay=0.99
 
-    data = torchvision.datasets.STL10(
+    # data = torchvision.datasets.STL10(
+    #     data_root,
+    #     split='train+unlabeled',
+    #     transform=MultiviewData(
+    #         [transform.my_transform(True),
+    #          transform.my_transform(False)]),
+    #     #transform=torchvision.transforms.ToTensor(),
+    #     download=True)
+    data = torchvision.datasets.ImageNet(
         data_root,
-        split='train+unlabeled',
+        split='all',
         transform=MultiviewData(
             [transform.my_transform(True),
              transform.my_transform(False)]),
-        #transform=torchvision.transforms.ToTensor(),
         download=True)
 
     online_net = my_vgg_with_projector(512, 128)
