@@ -10,10 +10,7 @@ class VGG(nn.Module):
         self.features = features
 
         self.reg_layer = nn.Sequential(
-            nn.Conv2d(512, 10, kernel_size=3, padding=1),
-            nn.Softmax()
-        )
-
+            nn.Conv2d(512, 10, kernel_size=3, padding=1), nn.Softmax())
 
     def forward(self, x):
         x = self.features(x)
@@ -47,26 +44,32 @@ def init_weights(model):  #
             nn.init.constant_(m.weight, 1)
             nn.init.constant_(m.bias, 0)
 
+
 cfg = {
-    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512]
+    'E': [
+        64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512,
+        512, 'M', 512, 512, 512, 512, 'M'
+    ]
 }
+
 
 def VGG_basemodel(pre_train):
     """
     VGG 19-layer model (configuration "E")
     """
-    model = VGG(make_layers(cfg['E']))
+    model = VGG(make_layers(cfg['E'], True))
     # model.load_state_dict(model_zoo.load_url(model_urls['vgg19']), strict=False)
-    if pre_train=='vgg19':
+    if pre_train == 'vgg19':
         print('use pretrained model: ' + pre_train)
-        model.load_state_dict(torch.load('/home/lzx/.cache/torch/checkpoints/vgg19-dcbb9e9d.pth'), strict=False)
-    elif pre_train=='kaiming':
+        model.load_state_dict(torch.load(
+            '/home/lzx/.cache/torch/checkpoints/vgg19-dcbb9e9d.pth'),
+                              strict=False)
+    elif pre_train == 'kaiming':
         print('use kaiming init')
         init_weights(model)
     else:
-        print('use pretrained model: SSL-'+pre_train)
-        model.load_state_dict(torch.load(pre_train)['online_network_state_dict'], strict=False)
+        print('use pretrained model: SSL-' + pre_train)
+        model.load_state_dict(
+            torch.load(pre_train)['online_network_state_dict'], strict=False)
 
     return model
-
-
