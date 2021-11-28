@@ -28,6 +28,7 @@ class BYOLTrainer:
         #train_param
         self.num_epoch = num_epoch
         self.optimizer = optimizer
+        self.step_optimizer = step_optimizer
         self.batch_size = batch_size
 
     @staticmethod
@@ -99,7 +100,7 @@ class BYOLTrainer:
                 self.optimizer.step()
                 #更新target____ddp需要用module
                 net.module.update_target_param()
-                step_optimizer.step()
+                self.step_optimizer.step()
 
                 if opt.local_rank == 0:
                     if iter !=0 and iter % tb_log_intv == 0:
