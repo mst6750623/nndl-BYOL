@@ -11,11 +11,11 @@ class my_vgg_with_projector(nn.Module):
         #self.resnet = models.resnet18(pretrained=False)
         #self.encoder = nn.Sequential(*list(self.resnet.children())[:-1])
         self.encoder = vgg.VGG_basemodel('kaiming').features
-        self.projector = MLPHead(512, hidden_channels, out_channels)
+        self.projector = MLPHead(512*9, hidden_channels, out_channels)
 
     def forward(self, x):
         temp = self.encoder(x)
-        #print(temp.shape)
+        # print(temp.shape)
         #temp = torch.flatten(temp, 1)
         temp = temp.view(temp.shape[0], -1)
         #print(temp.shape)
