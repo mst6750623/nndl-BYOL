@@ -31,12 +31,12 @@ def main():
 
     # device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     data_root = "/mnt/pami23/longzili/DATA/nndl_BYOL"
-    checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/'
-    num_epoch = 60
+    checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/big_lr_0.001/'
+    num_epoch = 80
     batch_size = 128
 
     #optimizer
-    lr=0.0001
+    lr=0.001
     beta=(0.5,0.999)
     weight_decay=0.99
 
@@ -59,10 +59,9 @@ def main():
                                  lr,
                                  beta,
                                  weight_decay)
-    step_optimizer = StepLR(optimizer, step_size = 15, gamma=0.5)
     momentum_ori = 0.999
     my_trainer = BYOLTrainer(num_epoch, batch_size, online_net,
-                             online_predictor, target_net, optimizer, step_optimizer,
+                             online_predictor, target_net, optimizer,
                              momentum_ori, checkpoint_path,opt)
     my_trainer.train(data)
 

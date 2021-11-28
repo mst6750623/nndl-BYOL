@@ -1,3 +1,3 @@
 CUDA_VISIBLE_DEVICES="0,2,3,5,6" python -m torch.distributed.launch \
---master_port 19990 --nproc_per_node 5 \
+--master_port 19987 --nproc_per_node 5 \
 train.py
