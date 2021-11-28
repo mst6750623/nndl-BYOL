@@ -7,6 +7,7 @@ import os
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import torch.distributed as dist
+from torch.optim.lr_scheduler import StepLR
 
 from net.BYOL import *
 
@@ -15,7 +16,7 @@ writer = SummaryWriter()
 
 class BYOLTrainer:
     def __init__(self, num_epoch, batch_size, online_net, online_predictor,
-                 target_net, optimizer, step_optimizer, momentum, checkpoint_path, opt):
+                 target_net, optimizer, momentum, checkpoint_path, opt):
         #net_param
         self.online_net = online_net
         self.online_predictor = online_predictor
@@ -28,7 +29,7 @@ class BYOLTrainer:
         #train_param
         self.num_epoch = num_epoch
         self.optimizer = optimizer
-        self.step_optimizer = step_optimizer
+        self.step_optimizer = StepLR(self.optimizer, step_size = 15, gamma=0.2)
         self.batch_size = batch_size
         self.checkpoint_path = checkpoint_path
 
@@ -101,7 +102,7 @@ class BYOLTrainer:
                 self.optimizer.step()
                 #更新target____ddp需要用module
                 net.module.update_target_param()
-                self.step_optimizer.step()
+                
 
                 if opt.local_rank == 0:
                     if iter !=0 and iter % tb_log_intv == 0:
@@ -114,7 +115,9 @@ class BYOLTrainer:
                 writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
                 current_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
                 writer.add_scalar('lr',current_lr,global_step=epoch)
-                net.module.save_model(os.path.join(self.checkpoint_path, 'step'+str(epoch)+'model.pth'))
+                if epoch!=1 and epoch%5:
+                    net.module.save_model(os.path.join(self.checkpoint_path, 'biglr001_'+str(epoch)+'model.pth'))
+            self.step_optimizer.step()
         if opt.local_rank==0:
             writer.flush()
             writer.close()
