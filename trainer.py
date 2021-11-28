@@ -109,8 +109,7 @@ class BYOLTrainer:
             if opt.local_rank==0:
                 print('total_loss:{}'.format(np.mean(losses)))
                 writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
+                net.save_model(os.path.join(checkpoint_path, str(epoch)+'model.pth'))
         if opt.local_rank==0:
             writer.flush()
-            net.save_model(
-                os.path.join(checkpoint_path, 'model.pth'))
             writer.close()
