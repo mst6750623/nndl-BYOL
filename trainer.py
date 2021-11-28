@@ -6,42 +6,29 @@ import numpy as np
 import os
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+import torch.distributed as dist
+
+from net.BYOL import *
 
 writer = SummaryWriter()
 
 
 class BYOLTrainer:
     def __init__(self, num_epoch, batch_size, online_net, online_predictor,
-                 target_net, optimizer, momentum, device, checkpoint_path):
-        self.num_epoch = num_epoch
+                 target_net, optimizer, step_optimizer, momentum, checkpoint_path,opt):
+        #net_param
         self.online_net = online_net
         self.online_predictor = online_predictor
         self.target_net = target_net
-        self.optimizer = optimizer
         self.momentum = momentum
-        self.device = device
+
+        #setting
+        self.opt = opt
+
+        #train_param
+        self.num_epoch = num_epoch
+        self.optimizer = optimizer
         self.batch_size = batch_size
-
-    def init_target_param(self):
-        for param_theta, param_fi in zip(self.online_net.parameters(),
-                                         self.target_net.parameters()):
-            param_fi.data.copy_(param_theta.data)
-            param_fi.requires_grad = False
-
-    @torch.no_grad()
-    def update_target_param(self):
-        for param_theta, param_fi in zip(self.online_net.parameters(),
-                                         self.target_net.parameters()):
-            param_fi.data = self.momentum * param_fi.data + (
-                1. - self.momentum) * param_theta.data
-
-    def save_model(self, PATH):
-        torch.save(
-            {
-                'online_network_state_dict': self.online_net.state_dict(),
-                'target_network_state_dict': self.target_net.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict(),
-            }, PATH)
 
     @staticmethod
     def cal_loss(x1, x2):
@@ -52,50 +39,78 @@ class BYOLTrainer:
         #x2_normalize = F.normalize(x2, dim=1)
         return 2 - 2 * (x1_normalize * x2_normalize).sum(dim=-1)
 
-    def update(self, x1, x2):
-        x1_online_output = self.online_predictor(self.online_net(x1))
-        x2_online_output = self.online_predictor(self.online_net(x2))
-        with torch.no_grad():
-            x1_target_output = self.target_net(x1)
-            x2_target_output = self.target_net(x2)
+    def update(self, x1_online_output, x2_target_output,x2_online_output,x1_target_output):
         l1 = self.cal_loss(x1_online_output, x2_target_output)
         l1 += self.cal_loss(x2_online_output, x1_target_output)
         return l1.mean()
 
+    def init_BYOL(self, mode = 'init'):
+        '''
+        mode= 'init' : kaiming_init
+        mode = 'resume' : 载入模型
+        '''
+        net = BYOL_net(self.online_net,self.online_predictor,self.target_net,self.momentum)
+        if mode == 'init':
+            net.init_target_param()
+        return net
+
+
     def train(self, dataset):
-        self.data_iter = DataLoader(dataset,
-                                    batch_size=self.batch_size,
-                                    shuffle=True,
-                                    num_workers=4,
-                                    drop_last=False)
-        self.init_target_param()
+        
+        opt = self.opt
         iter = 0
         l_sum = 0
-        tb_log_intv = 200
+        tb_log_intv = 10
+        #网络初始化
+        net = self.init_BYOL(mode='init')
+        
+        #DDP
+        net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
+        torch.cuda.set_device(opt.local_rank)
+        dist.init_process_group(backend='nccl')
+        device = torch.device('cuda',opt.local_rank)
+        net=net.to(device)
+        net = torch.nn.parallel.DistributedDataParallel(net, 
+                                    device_ids=[opt.local_rank],
+                                    output_device = opt.local_rank)
+        #ddp_dataloader 
+        train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+        data_iter = DataLoader(dataset,
+                                    batch_size=self.batch_size,
+                                    sampler = train_sampler,
+                                    num_workers=2,
+                                    drop_last=False)
+        
+
         for epoch in range(self.num_epoch):
             losses = []
-            print("epoch:", epoch)
-            for (x_1, x_2), _ in tqdm(self.data_iter, desc="Processing:"):
-                #print(x[0].shape, x[1].shape, x[0].equal(x[1]))
-                x1 = x_1.to(self.device)
-                x2 = x_2.to(self.device)
-                l = self.update(x1, x2)
+            if opt.local_rank==0:
+                print("epoch:", epoch)
+            for (x_1, x_2), _ in tqdm(data_iter, desc="Processing:"):
+                x1 = x_1.to(device)
+                x2 = x_2.to(device)
+                x1_on,x2_t,x2_on,x1_t = net(x1,x2)
+                #calculate loss
+                l = self.update(x1_on,x2_t,x2_on,x1_t)
                 losses.append(l.item())
-                #writer.add_scalar('loss', l, global_step=iter)
                 
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
+                #更新target____ddp需要用module
+                net.module.update_target_param()
 
-                if iter !=0 and iter % tb_log_intv == 0:
-                    avgl = np.mean(losses[-tb_log_intv:])
-                    print('loss:{}'.format(avgl))
-                    writer.add_scalar("iter_Loss", avgl, global_step = iter)
-                self.update_target_param()
-                iter += 1
-            print('total_loss:{}'.format(np.mean(losses)))
-            writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
-        writer.flush()
-        self.save_model(
-            os.path.join(checkpoint_path, 'model.pth'))
-        writer.close()
+                if opt.local_rank == 0:
+                    if iter !=0 and iter % tb_log_intv == 0:
+                        avgl = np.mean(losses[-tb_log_intv:])
+                        print('loss:{}'.format(avgl))
+                        writer.add_scalar("iter_Loss", avgl, global_step = iter)
+                    iter += 1
+            if opt.local_rank==0:
+                print('total_loss:{}'.format(np.mean(losses)))
+                writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
+        if opt.local_rank==0:
+            writer.flush()
+            net.save_model(
+                os.path.join(checkpoint_path, 'model.pth'))
+            writer.close()
