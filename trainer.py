@@ -110,7 +110,6 @@ class BYOLTrainer:
             if opt.local_rank==0:
                 print('total_loss:{}'.format(np.mean(losses)))
                 writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
-                writer.add_scalar("lr", , global_step = epoch)
                 current_lr = optimizer.state_dict()['param_groups'][0]['lr']
                 writer.add_scalar('lr',current_lr,global_step=epoch)
                 net.save_model(os.path.join(checkpoint_path, 'step'+str(epoch)+'model.pth'))
