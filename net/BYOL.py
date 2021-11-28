@@ -12,9 +12,7 @@ class BYOL_net(nn.Module):
     def save_model(self, PATH):
         torch.save(
             {
-                'online_network_state_dict': self.online_net.state_dict(),
-                'target_network_state_dict': self.target_net.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict(),
+                'online_network_state_dict': self.online_net.state_dict()
             }, PATH)
 
     def init_target_param(self):

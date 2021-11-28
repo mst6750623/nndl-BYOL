@@ -15,7 +15,7 @@ writer = SummaryWriter()
 
 class BYOLTrainer:
     def __init__(self, num_epoch, batch_size, online_net, online_predictor,
-                 target_net, optimizer, step_optimizer, momentum, checkpoint_path,opt):
+                 target_net, optimizer, step_optimizer, momentum, checkpoint_path, opt):
         #net_param
         self.online_net = online_net
         self.online_predictor = online_predictor
@@ -30,6 +30,7 @@ class BYOLTrainer:
         self.optimizer = optimizer
         self.step_optimizer = step_optimizer
         self.batch_size = batch_size
+        self.checkpoint_path = checkpoint_path
 
     @staticmethod
     def cal_loss(x1, x2):
@@ -111,9 +112,9 @@ class BYOLTrainer:
             if opt.local_rank==0:
                 print('total_loss:{}'.format(np.mean(losses)))
                 writer.add_scalar("epoch_Loss", np.mean(losses), global_step = epoch)
-                current_lr = optimizer.state_dict()['param_groups'][0]['lr']
+                current_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
                 writer.add_scalar('lr',current_lr,global_step=epoch)
-                net.save_model(os.path.join(checkpoint_path, 'step'+str(epoch)+'model.pth'))
+                net.module.save_model(os.path.join(self.checkpoint_path, 'step'+str(epoch)+'model.pth'))
         if opt.local_rank==0:
             writer.flush()
             writer.close()
