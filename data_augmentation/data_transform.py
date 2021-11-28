@@ -1,5 +1,5 @@
 import torchvision.transforms as transforms
-from data_augmentation.Gaussian_blur import GaussianBlur
+from .Gaussian_blur import GaussianBlur
 #from torch.functional import InterpolationMode
 
 
