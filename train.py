@@ -33,7 +33,7 @@ def main():
     data_root = "/mnt/pami23/longzili/DATA/nndl_BYOL"
     checkpoint_path = '/mnt/pami23/longzili/checkfolder/nndl_BYOL/'
     num_epoch = 40
-    batch_size = 256
+    batch_size = 128
 
     #optimizer
     lr=0.0001
