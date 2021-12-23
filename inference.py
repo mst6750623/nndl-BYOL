@@ -1,8 +1,10 @@
 import torch
 import os
 import torchvision
+import time
 from tqdm import tqdm
 import torchvision.transforms as transforms
+import torchvision.models as models
 from torch.utils.data import DataLoader
 from net.vgg_with_projector import my_vgg_with_projector
 from net.resnet_with_projector import my_resnet_with_projector
@@ -12,7 +14,7 @@ from net.inference_net import InferenceVGG
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     train_data = torchvision.datasets.CIFAR10(
-        'mnt/pami23/stma/datasets/cifar10',
+        '/mnt/pami23/stma/datasets/cifar10',
         train=True,
         #transform=torchvision.transforms.ToTensor(),
         transform=transforms.Compose([
@@ -24,7 +26,7 @@ def main():
         ]),
         download=True)
     test_data = torchvision.datasets.CIFAR10(
-        'mnt/pami23/stma/datasets/cifar10',
+        '/mnt/pami23/stma/datasets/cifar10',
         train=False,
         #transform=torchvision.transforms.ToTensor(),
         transform=transforms.Compose([
@@ -34,7 +36,7 @@ def main():
         ]),
         download=True)
 
-    online_net_with_projector = my_resnet_with_projector(512, 128).to(device)
+    online_net_with_projector = models.resnet18(pretrained=False)
     is_train = True
     batch_size = 32
     epoch_num = 10
@@ -43,8 +45,9 @@ def main():
             '/mnt/pami23/stma/checkpoints/myBYOL', 'model.pth')
         checkpoints = torch.load(train_checkpoint_path)
         online_net_with_projector.load_state_dict(
-            checkpoints['online_network_state_dict'], strict=True)
-        representation_layer = online_net_with_projector.encoder
+            checkpoints['online_network_state_dict'], strict=False)
+        representation_layer = online_net_with_projector
+        print(list(representation_layer.children())[-1])
         model = InferenceVGG(representation_layer, 512)
 
         optimizer = torch.optim.Adam(model.parameters(),
@@ -54,8 +57,8 @@ def main():
         train(train_data, batch_size, model, epoch_num, optimizer, device)
         print("train complete!")
     else:
-        representation_layer = online_net_with_projector.encoder
-        model = InferenceVGG(representation_layer)
+        representation_layer = online_net_with_projector
+        model = InferenceVGG(representation_layer, 512)
         model.to(device)
         test_checkpoint_path = os.path.join(
             '/mnt/pami23/stma/checkpoints/myBYOL', 'inference.pth')
@@ -70,9 +73,6 @@ def main():
 
 
 def train(data, batch_size, model, epoch_num, optimizer, device):
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            print(name)
     losses = AverageMeter()
     top1 = AverageMeter()
     data_iter = DataLoader(data, batch_size, shuffle=True, num_workers=4)
@@ -80,7 +80,8 @@ def train(data, batch_size, model, epoch_num, optimizer, device):
     print_freq = 200
     iter = 0
     for epoch in range(epoch_num):
-        for x, y in tqdm(data_iter, desc="Training:"):
+        print("epoch:", epoch)
+        for x, y in data_iter:
             x = x.to(device)
             y = y.to(device)
             y_hat = model(x)
@@ -88,13 +89,14 @@ def train(data, batch_size, model, epoch_num, optimizer, device):
             optimizer.zero_grad()
             l.backward()
             optimizer.step()
+
             prec1 = accuracy(y_hat.data, y)[0]
             losses.update(l.item(), x.size(0))
             top1.update(prec1.item(), x.size(0))
             if iter % print_freq == 0:
-                print('loss:{losses.val:.3f}{losses.avg:.3f}\t'
-                      'top1:{top1.val:.3f}{top1.avg:.3f}'.format(losses=losses,
-                                                                 top1=top1))
+                print('loss:val-{losses.val:.3f} avg-{losses.avg:.3f}\t'
+                      'top1:val-{top1.val:.3f} avg-{top1.avg:.3f}'.format(
+                          losses=losses, top1=top1))
             iter += 1
     checkpoint_path = os.path.join('/mnt/pami23/stma/checkpoints/myBYOL',
                                    'inference_resnet.pth')
@@ -109,7 +111,7 @@ def inference(data, batch_size, model, device):
     model.eval()
     print_freq = 100
     iter = 0
-    for x, y in tqdm(data_iter, desc="Validating:"):
+    for x, y in data_iter:
         x = x.to(device)
         y = y.to(device)
         with torch.no_grad():
@@ -119,10 +121,9 @@ def inference(data, batch_size, model, device):
         losses.update(loss.item(), x.size(0))
         top1.update(prec1.item(), x.size(0))
         if iter % print_freq == 0:
-            print('loss:{losses.val:.3f}{losses.avg:.3f}\t'
-                  'top1:{top1.val:.3f}{top1.avg:.3f}'.format(losses=losses,
-                                                             top1=top1))
-
+            print('loss:val-{losses.val:.3f} avg-{losses.avg:.3f}\t'
+                  'top1:val-{top1.val:.3f} avg-{top1.avg:.3f}'.format(
+                      losses=losses, top1=top1))
         iter += 1
     print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
     return top1.avg
@@ -154,11 +155,11 @@ def accuracy(output, target, topk=(1, )):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
-
+    print(output, target, topk, maxk)
     _, pred = output.topk(maxk, 1, True, True)
     pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))
-
+    time.sleep(10)
     res = []
     for k in topk:
         correct_k = correct[:k].view(-1).float().sum(0)

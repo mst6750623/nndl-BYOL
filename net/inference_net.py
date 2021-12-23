@@ -8,11 +8,11 @@ class InferenceVGG(nn.Module):
         self.features = features
         #for p in self.features.parameters():
         #    p.requires_grad = False
-        self.classification = nn.Sequential(nn.Linear(input_dim, input_dim),
-                                            nn.ReLU(),
-                                            nn.Linear(input_dim, input_dim),
-                                            nn.ReLU(),
-                                            nn.Linear(input_dim, 10))
+        self.classification = nn.Sequential(
+            nn.Linear(
+                list(self.features.children())[-1].out_features, input_dim),
+            nn.ReLU(), nn.Linear(input_dim, input_dim), nn.ReLU(),
+            nn.Linear(input_dim, 10))
 
     def forward(self, x):
         temp = self.features(x)
